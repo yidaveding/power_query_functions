@@ -1,0 +1,41 @@
+let 
+    Table.GenerateCalendarWeeks = (
+        startyear as number,
+        endyear as number，
+        financialYearStartMonth as number,
+        WeekNumOfFirstMonday as number
+    ) as table =>
+        let
+        startDate = Text.From(startyear) & "-01-01",
+        endDate = Text.From(endyear) & "-12-31",
+        startDateFY = Text.From(endyear+1) & "-" & Text.From(financialYearStartMonth) & "-01",
+        
+        source = {Number.From(Date.FromText(startDate))..Number.From(Date.FromText(endDate))},
+            #"Converted to Table" = Table.FromList(source, Splitter.SplitByNothing(), null, null, ExtraValues.Error),
+            #"Renamed Columns" = Table.RenameColumns(#"Converted to Table",{{"Column1", "Date"}}),
+            #"Changed Type" = Table.TransformColumnTypes(#"Renamed Columns",{{"Date", type date}}),
+            #"Added Custom" = Table.AddColumn(#"Changed Type", "Calendar Year", each Date.Year([Date]), Int64.Type),
+            #"Added Custom1" = Table.AddColumn(#"Added Custom", "Calendar Month", each Date.Month([Date]), Int64.Type),
+            #"Added Custom2" = Table.AddColumn(#"Added Custom1", "Calendar Month Text", each Date.MonthName([Date]), type text),
+            #"Added Custom3" = Table.AddColumn(#"Added Custom2", "Start of Month", each Date.StartOfMonth([Date]), type date),
+            #"Added Custom4" = Table.AddColumn(#"Added Custom3", "Year Month Short", each Date.ToText([Date], "MMM-yy"), type text),
+            #"Added Custom5" = Table.AddColumn(#"Added Custom4", "Calendar Year Month Num", each [Calendar Year] * 100 + [Calendar Month], Int64.Type),
+            #"Added Custom6" = Table.AddColumn(#"Added Custom5", "Financial Year", each if [Calendar Month] < financialYearStartMonth then [Calendar Year] else [Calendar Year] + 1, type text),
+            #"Added Custom7" = Table.AddColumn(#"Added Custom6", "Financial Year Month Num", each if [Calendar Month] < financialYearStartMonth then [Financial Year]*100 +[Calendar Month] + (financialYearStartMonth-1) else [Financial Year]*100 +[Calendar Month] - (financialYearStartMonth-1), Int64.Type),
+            #"Added Custom8" = Table.AddColumn(#"Added Custom7", "Standard Week Number", each Date.WeekOfYear([Date]), Int64.Type),
+            #"Added Custom9" = Table.AddColumn(#"Added Custom8", "Weekday_Short", each Date.DayOfWeekName([Date]), type text),
+            #"Added Custom10" = Table.AddColumn(#"Added Custom9", "Weekday_Num", each Date.DayOfWeek([Date], 1) + 1, Int64.Type),
+            #"Added Custom11" = Table.AddColumn(#"Added Custom10", "YearDays", each Date.DayOfYear([Date]), Int64.Type),
+            #"Added Custom12" = Table.AddColumn(#"Added Custom11", "CurrentYearStart", each Date.FromText(Text.From(endyear) & "-01-01"), type date),
+            #"Added Custom13" = Table.AddColumn(#"Added Custom12", "Week Start Date", each Date.AddDays([Date], (7 - [Weekday_Num] + 1) - 7*WeekNumOfFirstMonday), Int64.Type),
+            #"Added Custom14" = Table.AddColumn(#"Added Custom13", "WeekNumberFromCurrentYearStart", each Number.RoundDown(Duration.Days([Week Start Date]-[CurrentYearStart])/7), Int64.Type),
+            #"Added Custom15" = Table.AddColumn(#"Added Custom14", "CY Week Number Adjusted", each [WeekNumberFromCurrentYearStart] - 52*(Date.Year([Week Start Date])-endyear) + 1, Int64.Type),
+            #"Added Custom19" = Table.AddColumn(#"Added Custom15", "FY Based on weekstart", each if Date.Month([Week Start Date]) < financialYearStartMonth then Date.Year([Week Start Date]) else Date.Year([Week Start Date]) + 1),
+            #"Added Custom16" = Table.AddColumn(#"Added Custom19", "CurrentFYYearStart", each Date.FromText(Text.From(endyear) & "-" & Text.From(financialYearStartMonth) & "-01"), type date),
+            #"Added Custom17" = Table.AddColumn(#"Added Custom16", "WeekNumberFromCurrentFYStart", each Number.RoundDown(Duration.Days([Week Start Date]-[CurrentFYYearStart])/7), Int64.Type),
+            #"Added Custom18" = Table.AddColumn(#"Added Custom17", "FY Week Number Adjusted", each [WeekNumberFromCurrentFYStart] - 52*([FY Based on weekstart]-(endyear+1)) + 1, Int64.Type),
+            #"Removed Columns" = Table.RemoveColumns(#"Added Custom18",{"YearDays", "CurrentYearStart", "WeekNumberFromCurrentYearStart", "FY Based on weekstart", "CurrentFYYearStart", "WeekNumberFromCurrentFYStart"})
+        in
+            #"Removed Columns"
+in
+    Table.GenerateCalendarWeeks
